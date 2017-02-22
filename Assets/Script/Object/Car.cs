@@ -179,6 +179,7 @@ public class Car : MBehavior
 
 		m_stateMachine.AddUpdate( State.Wait , delegate {
 			waittingTime += Time.deltaTime;
+			OnWaitUpdate();
 		});
 
 		m_stateMachine.AddEnter(State.Pass, delegate {
@@ -200,6 +201,10 @@ public class Car : MBehavior
 			temLocation.OnLeave( this );
 		});
 
+	}
+
+	protected virtual void OnWaitUpdate()
+	{
 	}
 
 	public void Fade()

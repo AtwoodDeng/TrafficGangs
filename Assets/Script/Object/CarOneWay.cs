@@ -8,4 +8,10 @@ public class CarOneWay : Car {
 	{
 		nextLocation = temLocation.GetNeastestPassible ( GetTemRoad() ).Target;
 	}
+
+	protected override void OnWaitUpdate ()
+	{
+		base.OnWaitUpdate ();
+		nextLocation = temLocation.GetNeastestPassible ( GetTemRoad() ).Target;
+	}
 }
