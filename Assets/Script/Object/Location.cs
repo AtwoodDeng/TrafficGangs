@@ -49,12 +49,17 @@ public class Location : MBehavior {
 		return roads[ Random.Range( 0 ,  roads.Count) ];
 	}
 
-	virtual public bool IsPassiable( Road r )
+	virtual public bool IsPassiable ( Road fromRoad , Road toRoad , float time = -1f )
 	{
 		return true;
 	}
 
-	virtual public float GetWaittingTime( Road fromRoad )
+	virtual public float GetWaittingTimeFromRoad( Road fromRoad )
+	{
+		return 0;
+	}
+
+	virtual public float GetWaittingTimeToRoad( Road toRoad )
 	{
 		return 0;
 	}
@@ -73,13 +78,26 @@ public class Location : MBehavior {
 		return roads.ToArray();
 	}
 
+	virtual public Road GetNeastestPassible( Road fromRoad)
+	{
+		return roads [0];
+	}
+
 }
 
+public enum LimitedTurnDirection
+{
+	Left,
+	Right,
+	Both,
+}
 
 public enum RoadType
 {
-	NorthSouth,
-	WestEast,
+	North,
+	South,
+	West,
+	East,
 	None = 10,
 }
 

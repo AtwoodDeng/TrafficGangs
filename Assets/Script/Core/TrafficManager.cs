@@ -13,6 +13,16 @@ public class TrafficManager : MBehavior {
 
 	public CarSpawner[] targets;
 	public Location[] locations;
+	public List<Car> carList = new List<Car>();
+	public float AverageWaittingRate
+	{
+		get {
+			float totalRate = 0;
+			foreach (Car c in carList)
+				totalRate += c.WaittingRate;
+			return totalRate / carList.Count;
+		}
+	}
 
 	protected override void MStart () {
 		base.MStart ();
@@ -85,7 +95,7 @@ public class TrafficManager : MBehavior {
 			foreach( Road r in uLocation.GetRoads())
 			{
 				float WaittingTime = dist[uLocation];
-				WaittingTime += r.GetWaittingTime() + r.Target.GetWaittingTime(r);
+				WaittingTime += r.GetWaittingTime() + r.Original.GetWaittingTimeToRoad(r);
 				if ( WaittingTime < dist[r.Target] )
 				{
 					dist[r.Target] = WaittingTime;
@@ -105,6 +115,21 @@ public class TrafficManager : MBehavior {
 		}
 
 		return route.ToArray();
+	}
+
+	public static void RegisterCar( Car car )
+	{
+		Instance.carList.Add (car);
+	}
+
+	public static void UnregisterCar( Car car )
+	{
+		Instance.carList.Remove (car);
+	}
+
+	void OnGUI()
+	{
+		GUILayout.Label ("Average Wait Time : " + (AverageWaittingRate * 100f ) + "%" );
 	}
 
 }

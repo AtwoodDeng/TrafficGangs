@@ -4,9 +4,16 @@ using UnityEngine;
 
 public class Car : MBehavior
 {
+	int CarID;
 	public Location targetLocation;
 	public Location temLocation;
 	public Location nextLocation;
+	private float totalMoveTime = 0.001f;
+	private float waittingTime;
+	public float WaittingRate
+	{
+		get { return waittingTime / totalMoveTime; }
+	}
 	[SerializeField] private Road temRoad;
 	[SerializeField] GameObject model;
 
@@ -82,6 +89,7 @@ public class Car : MBehavior
 		m_collider.size = size;
 
 		name = "Car" + count.ToString();
+		CarID = count;
 		count ++;
 	}
 
@@ -107,7 +115,7 @@ public class Car : MBehavior
 	///  - next
 	/// set to null if there is no
 	/// </summary>
-	public void CalculateNext( )
+	virtual public void CalculateNext( )
 	{
 		route = TrafficManager.Instance.GetRoute( temLocation , targetLocation );
 		if ( route != null && route.Length > 1 )
@@ -144,6 +152,9 @@ public class Car : MBehavior
 				m_speed = Mathf.Clamp( m_speed + Acceleration * Time.deltaTime , 0 , MaxSpeed );
 			}
 
+			if ( m_speed < SlowSpeed )
+				waittingTime += Time.deltaTime;
+
 			// Update Direction
 			direction = GetForwardDirection().normalized;
 
@@ -167,12 +178,12 @@ public class Car : MBehavior
 		});
 
 		m_stateMachine.AddUpdate( State.Wait , delegate {
-//			if ( temLocation.IsPassiable( GetNextRoad() ) )
-//				m_stateMachine.State = State.Pass;	
+			waittingTime += Time.deltaTime;
 		});
 
 		m_stateMachine.AddEnter(State.Pass, delegate {
 
+//			CalculateNext();
 			// move from last road to the next one
 			if ( temRoad != null )
 				temRoad.OnLeave( this );
@@ -208,6 +219,11 @@ public class Car : MBehavior
 			m_stateMachine.State = State.MoveForward;
 	}
 
+	public Road GetTemRoad()
+	{
+		return temRoad;
+	}
+
 	public Road GetNextRoad()
 	{
 		if ( temLocation != null )
@@ -220,6 +236,7 @@ public class Car : MBehavior
 	{
 		base.MUpdate ();
 		m_stateMachine.Update();
+		totalMoveTime += Time.deltaTime;
 	}
 
 	/// <summary>

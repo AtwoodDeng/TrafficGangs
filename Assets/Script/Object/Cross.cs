@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
+using UnityEngine.Assertions;
 
 [ExecuteInEditMode]
 public class Cross : Location {
@@ -9,6 +10,7 @@ public class Cross : Location {
 	[SerializeField] float PassCycle = 2f;
 	[SerializeField] float PassRate = 0.5f;
 	[SerializeField] float yellowRate = 0.1f;
+	[SerializeField] LimitedTurnDirection turnDirectLimitation = LimitedTurnDirection.Both;
 	private float timer = 0;
 	public float TimeRateInCycle
 	{
@@ -41,8 +43,10 @@ public class Cross : Location {
 			{
 				if ( c.IsWaitting )
 				{
-					if ( IsPassiable( c.GetNextRoad() )) {
+//					Debug.Log ("=== car " + c.name + " === ");
+					if ( IsPassiable( c.GetTemRoad() , c.GetNextRoad() )) {
 						PassCar( c );
+						waittingCar.Remove (c);
 						break;
 					}
 				}
@@ -63,32 +67,67 @@ public class Cross : Location {
 //		c.PassToMoveForward();
 	}
 
-	public override bool IsPassiable (Road r)
+	public override bool IsPassiable ( Road fromRoad , Road toRoad , float timeRate = -1f)
 	{
-		//		Debug.Log(" road from " + r.Original.name + " to " + r.Target.name );
-		if ( r.Original != this )
-			return true;
+//		Debug.Log ("This " + name + " from " + fromRoad.Target.name + " to " + toRoad.Original.name);
+		Assert.AreEqual<Location> (this, fromRoad.Target);
+		Assert.AreEqual<Location> (this, toRoad.Original);
 
 //		Debug.Log(" Road Type " + r.type + " " + TimeRateInCycle + " " + PassRate );
-		if ( IsPassing( r.type ) )
+		if ( IsPassing( toRoad.type , timeRate ) )
 		{
-			return true;
+			if ( turnDirectLimitation == LimitedTurnDirection.Both )
+				return true;
+			if (IsRightTurn (fromRoad.type, toRoad.type) && turnDirectLimitation == LimitedTurnDirection.Right)
+				return true;
+			if (IsLeftTurn (fromRoad.type, toRoad.type) && turnDirectLimitation == LimitedTurnDirection.Left)
+				return true;
 		}
 
 		return false;
 	}
 
-	public bool IsPassing( RoadType type )
+	public bool IsLeftTurn( RoadType fromRoad , RoadType toRoad )
 	{
+		if (fromRoad == RoadType.South && toRoad == RoadType.West)
+			return true;
+		if (fromRoad == RoadType.West && toRoad == RoadType.North)
+			return true;
+		if (fromRoad == RoadType.North && toRoad == RoadType.East)
+			return true;
+		if (fromRoad == RoadType.East && toRoad == RoadType.South)
+			return true;
+		return false;
+	}
+
+	public bool IsRightTurn( RoadType fromRoad , RoadType toRoad )
+	{
+		if (toRoad == RoadType.South && fromRoad == RoadType.West)
+			return true;
+		if (toRoad == RoadType.West && fromRoad == RoadType.North)
+			return true;
+		if (toRoad == RoadType.North && fromRoad == RoadType.East)
+			return true;
+		if (toRoad == RoadType.East && fromRoad == RoadType.South)
+			return true;
+		return false;
+	}
+
+	public bool IsPassing( RoadType type , float timeRate = -1f )
+	{
+		if (timeRate < 0)
+			timeRate = TimeRateInCycle;
 		switch( type ) {
-		case RoadType.NorthSouth:
-			if ( TimeRateInCycle < PassRate - yellowRate )
+		case RoadType.North:
+		case RoadType.South:
+			if ( timeRate < PassRate - yellowRate  && timeRate > yellowRate)
 				return true;
 			else
 				return false;
 			break;
-		case RoadType.WestEast:
-			if ( TimeRateInCycle > PassRate + yellowRate )
+		case RoadType.West:
+		case RoadType.East:
+			if ( timeRate > PassRate + yellowRate && timeRate < 1f - yellowRate )
 				return true;
 			else
 				return false;
@@ -107,8 +146,12 @@ public class Cross : Location {
 
 		foreach( Road r in roads )
 		{
-			if ( r.type == RoadType.NorthSouth )
-				Gizmos.color = Color.Lerp( Color.white , Color.magenta , 0.7f );
+			if (r.type == RoadType.North)
+				Gizmos.color = Color.yellow;
+			else if (r.type == RoadType.South)
+				Gizmos.color = Color.red;
+			else if (r.type == RoadType.East)
+				Gizmos.color = Color.blue;
 			else
 				Gizmos.color = Color.cyan;
 
@@ -117,11 +160,11 @@ public class Cross : Location {
 
 		// show the passing situation
 		Gizmos.color = Color.green;
-		if ( IsPassing(RoadType.WestEast ) )
+		if ( IsPassing( RoadType.North ) || IsPassing( RoadType.South ) )
 		{
 			Gizmos.DrawLine( transform.position + transform.forward * Width / 2f 
 				, transform.position - transform.forward * Width / 2f );
-		} else if ( IsPassing(RoadType.NorthSouth) ) {
+		} else if ( IsPassing( RoadType.East) || IsPassing( RoadType.West) ) {
 			Gizmos.DrawLine( transform.position + transform.right * Width / 2f 
 				, transform.position - transform.right * Width / 2f );
 		}else {
@@ -133,14 +176,22 @@ public class Cross : Location {
 		}
 	}
 
-	public override float GetWaittingTime (Road fromRoad)
+	public override float GetWaittingTimeFromRoad (Road fromRoad)
 	{
-		if ( fromRoad.type == RoadType.NorthSouth )
+		if ( fromRoad.type == RoadType.North || fromRoad.type == RoadType.South )
 		{
 			return PassRate * PassCycle;
 		}
 
 		return ( 1f - PassRate ) * PassCycle;
+	}
+
+	public override float GetWaittingTimeToRoad (Road toRoad)
+	{
+		if (IsPassing (toRoad.type))
+			return 0;
+
+		return GetWaittingTimeFromRoad (toRoad);
 	}
 
 	public override void OnArrive (Car car)
@@ -153,5 +204,27 @@ public class Cross : Location {
 	public override void OnLeave (Car car)
 	{
 		base.OnLeave (car);
+	}
+
+	public override Road GetNeastestPassible ( Road fromRoad )
+	{
+		float timeRate = TimeRateInCycle;
+		List<Road> newRoads = new List<Road> (roads);
+		newRoads.Sort (delegate(Road x, Road y) {
+			return Random.Range(0,2);	
+		});
+		int count = 0;
+		while (true) {
+			foreach (Road r in newRoads) {
+				if (IsPassiable (fromRoad, r , timeRate)) {
+					return r;
+				}
+			}
+			timeRate = Mathf.Repeat (timeRate + 0.05f, 1f);
+			count++;
+			if (count > 100)
+				break;
+		}
+		return newRoads [0];
 	}
 }

@@ -41,6 +41,7 @@ public class CarSpawner : Location {
 
 		Car carCom = carObj.GetComponent<Car>();
 		carCom.SetFromToLocation( this , targets[Random.Range( 0 , targets.Count) ] );
+		TrafficManager.RegisterCar (carCom);
 	}
 
 	void OnDrawGizmos() {
@@ -51,8 +52,12 @@ public class CarSpawner : Location {
 
 		foreach( Road r in roads )
 		{
-			if ( r.type == RoadType.NorthSouth )
-				Gizmos.color = Color.Lerp( Color.white , Color.magenta , 0.7f );
+			if (r.type == RoadType.North)
+				Gizmos.color = Color.yellow;
+			else if (r.type == RoadType.South)
+				Gizmos.color = Color.red;
+			else if (r.type == RoadType.East)
+				Gizmos.color = Color.blue;
 			else
 				Gizmos.color = Color.cyan;
 
@@ -100,6 +105,7 @@ public class CarSpawner : Location {
 	public override void OnArrive (Car car)
 	{
 		base.OnArrive (car);
+		TrafficManager.UnregisterCar (car);
 		car.Fade();
 		car.gameObject.SetActive(false);
 	}
