@@ -30,6 +30,11 @@ public class CarSpawner : Location {
 
 	public void SpawCar()
 	{
+		// if the car numbers hit the max,
+		// do not create more cars
+		if ( TrafficManager.IsCarMaximum() )
+			return;
+		
 		// test if all the road is empty
 		foreach( Road r in roads )
 		{

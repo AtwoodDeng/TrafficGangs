@@ -11,7 +11,6 @@ public class CarOneWay : Car {
 
 	protected override void OnWaitUpdate ()
 	{
-		base.OnWaitUpdate ();
-		nextLocation = temLocation.GetNeastestPassible ( GetTemRoad() ).Target;
+		CalculateNext();
 	}
 }

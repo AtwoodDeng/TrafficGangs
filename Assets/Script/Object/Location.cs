@@ -64,6 +64,11 @@ public class Location : MBehavior {
 		return 0;
 	}
 
+	virtual public float GetWaittingTimeFromToRoad( Road fromRoad , Road toRoad )
+	{
+		return 0;
+	}
+
 	virtual public void OnLeave( Car car )
 	{
 	}
@@ -87,9 +92,10 @@ public class Location : MBehavior {
 
 public enum LimitedTurnDirection
 {
+	Straight,
 	Left,
 	Right,
-	Both,
+	All,
 }
 
 public enum RoadType

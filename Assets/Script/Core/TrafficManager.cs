@@ -10,6 +10,7 @@ public class TrafficManager : MBehavior {
 	}
 	static private TrafficManager m_Instance;
 	public TrafficManager() { Instance = this; }
+	public int MaxCarNumber = 50;
 
 	public CarSpawner[] targets;
 	public Location[] locations;
@@ -41,8 +42,8 @@ public class TrafficManager : MBehavior {
 	/// <returns>The next location.</returns>
 	/// <param name="tem">Tem.</param>
 	/// <param name="target">Target.</param>
-	public Location GetNextLocation( Location tem , Location target ) {
-		Location[] route = GetRoute( tem , target ); 
+	public Location GetNextLocation( Location tem , Location target , Road fromRoad ) {
+		Location[] route = GetRoute( tem , target , fromRoad); 
 
 		if ( route != null && route.Length > 1 )
 			return route[1];
@@ -58,7 +59,7 @@ public class TrafficManager : MBehavior {
 	/// <returns>The route.</returns>
 	/// <param name="source">Source location.</param>
 	/// <param name="target">Target location.</param>
-	public Location[] GetRoute( Location source , Location target ) {
+	public Location[] GetRoute( Location source , Location target , Road fromRoad ) {
 		if ( source == null || target == null )
 			return null;
 		
@@ -92,10 +93,18 @@ public class TrafficManager : MBehavior {
 			}
 			unvisited.Remove( uLocation );
 
+			// search from uLocation
 			foreach( Road r in uLocation.GetRoads())
 			{
 				float WaittingTime = dist[uLocation];
-				WaittingTime += r.GetWaittingTime() + r.Original.GetWaittingTimeToRoad(r);
+				WaittingTime += r.GetWaittingTime();
+				if ( prev[uLocation] == null )
+					WaittingTime += r.Original.GetWaittingTimeFromToRoad( fromRoad , r );
+				else {
+					Road fRoad = prev[uLocation].GetRoadToward( uLocation );
+					if ( fRoad != null )
+						WaittingTime += r.Original.GetWaittingTimeFromToRoad( fRoad , r );
+				}
 				if ( WaittingTime < dist[r.Target] )
 				{
 					dist[r.Target] = WaittingTime;
@@ -132,5 +141,11 @@ public class TrafficManager : MBehavior {
 		GUILayout.Label ("Average Wait Time : " + (AverageWaittingRate * 100f ) + "%" );
 	}
 
+	public static bool IsCarMaximum()
+	{
+		if ( Instance == null )
+			return true;
+		return Instance.carList.Count >= Instance.MaxCarNumber;
+	}
 }
 

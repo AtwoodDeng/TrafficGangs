@@ -60,6 +60,7 @@ public class Car : MBehavior
 	}
 
 	AStateMachine<State,LogicEvents> m_stateMachine;
+	public State m_State;
 
 	/// <summary>
 	/// if the car is waiting in the location
@@ -117,12 +118,12 @@ public class Car : MBehavior
 	/// </summary>
 	virtual public void CalculateNext( )
 	{
-		route = TrafficManager.Instance.GetRoute( temLocation , targetLocation );
+//		Debug.Log("Calculate Next");
+		route = TrafficManager.Instance.GetRoute( temLocation , targetLocation , temRoad );
 		if ( route != null && route.Length > 1 )
 			nextLocation = route[1];
 		else
 			nextLocation = null;
-
 
 //		nextLocation = TrafficManager.Instance.GetNextLocation( temLocation , targetLocation );
 	}
@@ -142,7 +143,7 @@ public class Car : MBehavior
 		m_stateMachine.AddUpdate(State.MoveForward , delegate {
 			// Update Speed
 			Car forwardCar = TestForward();
-			if ( forwardCar != null && forwardCar.Speed.magnitude <= this.Speed.magnitude ) {
+			if ( forwardCar != null && forwardCar.Speed.magnitude <= this.Speed.magnitude && ( forwardCar.temRoad == temRoad ) ) {
 				m_speed = Mathf.Clamp( m_speed - Acceleration * Time.deltaTime , forwardCar.Speed.magnitude , MaxSpeed );
 			}else if ( (transform.position - temRoad.GetEndPosition()).magnitude < SafeDistance )
 			{
@@ -162,7 +163,7 @@ public class Car : MBehavior
 			transform.position += Speed * Time.deltaTime;
 
 			// Test If Arrive the end position
-			if ( ( transform.position - temRoad.GetEndPosition() ).magnitude < Speed.magnitude * Time.deltaTime * 3f ) {
+			if ( ( transform.position - temRoad.GetEndPosition() ).magnitude < Speed.magnitude * Time.deltaTime * 1.1f ) {
 				m_stateMachine.State = State.Wait;
 			}
 		});
@@ -203,8 +204,15 @@ public class Car : MBehavior
 
 	}
 
+	float waitUpdateTimer = 0.5f;
 	protected virtual void OnWaitUpdate()
 	{
+		if ( waitUpdateTimer < 0 )
+		{
+			waitUpdateTimer = 0.5f;
+			CalculateNext();
+		}
+		waitUpdateTimer -= Time.deltaTime;
 	}
 
 	public void Fade()
@@ -242,6 +250,7 @@ public class Car : MBehavior
 		base.MUpdate ();
 		m_stateMachine.Update();
 		totalMoveTime += Time.deltaTime;
+		m_State = m_stateMachine.State;
 	}
 
 	/// <summary>
@@ -283,16 +292,16 @@ public class Car : MBehavior
 		Vector3 toward = toPosition - transform.position;
 		if ( Vector3.Angle( transform.forward , toward ) < 1f ) // move forward
 		{
-			Debug.Log("Move Straight");
+//			Debug.Log("Move Straight");
 			StartCoroutine( CrossForward ( toPosition , endHandler ) );
 		}else if ( Mathf.RoundToInt( Vector3.Angle( transform.forward , toward ) ) == 90 ) // move back
 		{
-			Debug.Log("Move Back");
+//			Debug.Log("Move Back");
 			transform.position = toPosition;
 			endHandler();
 		}else // turn
 		{
-			Debug.Log("Turn 90 degreeds");
+//			Debug.Log("Turn 90 degreeds");
 			StartCoroutine( CrossTurn( toPosition , endHandler ));
 		}
 	}
@@ -374,5 +383,16 @@ public class Car : MBehavior
 				
 			}
 		}
+
+		if ( temRoad != null )
+		{
+			Gizmos.color = Color.blue;
+			Gizmos.DrawWireSphere( temRoad.GetEndPosition() , 0.2f );
+			Gizmos.color = Color.green;
+			Gizmos.DrawWireSphere( temRoad.Target.transform.position , 0.3f );
+			Gizmos.color = Color.cyan;
+			Gizmos.DrawWireSphere( GetNextRoad().Target.transform.position , 0.4f );
+		}
+
 	}
 }
