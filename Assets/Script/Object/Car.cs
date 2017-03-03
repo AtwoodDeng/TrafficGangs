@@ -21,7 +21,7 @@ public class Car : MBehavior
 	[SerializeField] float moveSpeed = 1f;
 	private float m_speed;
 	private Vector3 direction;
-	public Vector3 Speed { get { return m_speed * direction; } }
+	public Vector3 Speed { get { return m_speed * direction.normalized; } }
 	public float MaxSpeed { get { return moveSpeed; } }
 	public float SlowSpeed { get { return 0.05f * MaxSpeed; }}
 
@@ -155,6 +155,9 @@ public class Car : MBehavior
 
 			if ( m_speed < SlowSpeed )
 				waittingTime += Time.deltaTime;
+
+
+//			Debug.Log("Update delta time " + Time.deltaTime );
 
 			// Update Direction
 			direction = GetForwardDirection().normalized;
@@ -331,7 +334,7 @@ public class Car : MBehavior
 			offsetFromTo -= coordinateY * radiusY * ( 1f - Mathf.Sin( angle ));
 
 			transform.position = to + offsetFromTo;
-			direction = Mathf.Cos(angle) * coordinateY + Mathf.Sin( angle ) * coordinateX;
+			direction = (Mathf.Cos(angle) * coordinateY + Mathf.Sin( angle ) * coordinateX).normalized;
 			transform.forward = direction;
 			yield return new WaitForEndOfFrame();
 		}
@@ -343,8 +346,9 @@ public class Car : MBehavior
 
 	IEnumerator CrossForward( Vector3 to , Location.EndPassHandler endHandler )
 	{
+		
 		Vector3 toward = to - transform.position;
-		direction = toward;
+		direction = toward.normalized;
 		while ( (transform.position - to).magnitude > Speed.magnitude * Time.deltaTime ) {
 			m_speed = Mathf.Clamp( m_speed + Acceleration * Time.deltaTime , 0 , MaxSpeed );
 			transform.position += Speed * Time.deltaTime;

@@ -18,16 +18,24 @@ public class Cross : Location {
 	[SerializeField] bool ResetNorthSouth = false;
 	[SerializeField] bool ResetEastWest = false;
 
+	/// <summary>
+	/// Get the limit direction according to the type of the road
+	/// the limit direction is setted by where the road is from
+	/// so it is oppose to the road type of the road
+	/// </summary>
+	/// <returns>The turn limitaion.</returns>
+	/// <param name="fromRoad">From road.</param>
 	public LimitedTurnDirection GetTurnLimitaion( RoadType fromRoad )
 	{
+		
 		if ( fromRoad == RoadType.North )
-			return moveLimitFromNorth;
-		if ( fromRoad == RoadType.South )
 			return moveLimitFromSouth;
+		if ( fromRoad == RoadType.South )
+			return moveLimitFromNorth;
 		if ( fromRoad == RoadType.West )
-			return moveLimitFromWest;
-		if ( fromRoad == RoadType.East )
 			return moveLimitFromEast;
+		if ( fromRoad == RoadType.East )
+			return moveLimitFromWest;
 		return LimitedTurnDirection.All;
 	}
 	private float timer = 0;
@@ -154,7 +162,7 @@ public class Cross : Location {
 		return false;
 	}
 
-	public bool IsLeftTurn( RoadType fromRoad , RoadType toRoad )
+	public bool IsRightTurn( RoadType fromRoad , RoadType toRoad )
 	{
 		if (fromRoad == RoadType.South && toRoad == RoadType.West)
 			return true;
@@ -167,7 +175,7 @@ public class Cross : Location {
 		return false;
 	}
 
-	public bool IsRightTurn( RoadType fromRoad , RoadType toRoad )
+	public bool IsLeftTurn( RoadType fromRoad , RoadType toRoad )
 	{
 		if (toRoad == RoadType.South && fromRoad == RoadType.West)
 			return true;
