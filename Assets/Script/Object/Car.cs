@@ -8,22 +8,24 @@ public class Car : MBehavior
 	public Location targetLocation;
 	public Location temLocation;
 	public Location nextLocation;
-	private float totalMoveTime = 0.001f;
-	private float waittingTime;
+	protected float totalMoveTime = 0.001f;
+	protected float waittingTime;
 	public float WaittingRate
 	{
 		get { return waittingTime / totalMoveTime; }
 	}
-	[SerializeField] private Road temRoad;
-	[SerializeField] GameObject model;
+	[SerializeField] protected Road temRoad;
+	[SerializeField] protected GameObject model;
 
 	[Tooltip("The Speed of the Car move on the road (unit/second)")]
 	[SerializeField] float moveSpeed = 1f;
-	private float m_speed;
-	private Vector3 direction;
-	public Vector3 Speed { get { return m_speed * direction.normalized; } }
+	protected float m_forwardSpeed;
+	protected Vector3 forwardDirection;
+	protected float m_sideSpeed;
+	public Vector3 SideDirection{ get { return  Vector3.Cross( forwardDirection.normalized , -transform.up).normalized; } }
+	public Vector3 Speed { get { return m_forwardSpeed * forwardDirection.normalized + m_sideSpeed * SideDirection; } }
 	public float MaxSpeed { get { return moveSpeed; } }
-	public float SlowSpeed { get { return 0.05f * MaxSpeed; }}
+	public float SlowSpeed { get { return 0.02f * MaxSpeed; }}
 
 	[Tooltip("The duration for the car to speed up from 0 to MoveSpeed")]
 	[SerializeField] float accTime = 1f;
@@ -33,8 +35,10 @@ public class Car : MBehavior
 	[SerializeField] Vector3 size;
 	[SerializeField] LayerMask carTestMask;
 	[SerializeField] float additionalTestDistance = 0.1f;
-	Location[] route = null;
+	public bool AffectedByFirstPriority = true;
+	protected Location[] route = null;
 	static int count = 0;
+	Car firstPriorityCar = null;
 
 	BoxCollider m_collider;
 	public float SafeDistance {
@@ -49,17 +53,59 @@ public class Car : MBehavior
 	{
 		get { return SafeDistance + additionalTestDistance ; }
 	}
+	public float Length {
+		get {
+			return size.z;
+		}
+	}
+	public float Width {
+		get {
+			return size.x;
+		}
+	}
 
 	public enum State
 	{
 		None,
+		/// <summary>
+		/// Move in the straight line
+		/// </summary>
 		MoveForward,
+		/// <summary>
+		/// Go pass the cross
+		/// </summary>
 		Pass,
+		/// <summary>
+		/// Wait as the first car in the cross
+		/// </summary>
 		Wait,
+		/// <summary>
+		/// Waitting on the location
+		/// </summary>
+		WaitOnLocation,
+		/// <summary>
+		/// Fade away from the map
+		/// </summary>
 		Fade,
+		/// <summary>
+		/// Stop and wait until the first priority car pass
+		/// </summary>
+		StopForFirstPriority,
+		/// <summary>
+		/// Move Back to the road
+		/// </summary>
+		BackToRoad,
+
+		StopForFirstPriorityWait,
+		BackToRoadWait,
 	}
 
-	AStateMachine<State,LogicEvents> m_stateMachine;
+	protected AStateMachine<State,LogicEvents> m_stateMachine;
+	public State TemState{
+		get{
+			return m_stateMachine.State;
+		}
+	}
 	public State m_State;
 
 	/// <summary>
@@ -67,7 +113,7 @@ public class Car : MBehavior
 	/// </summary>
 	/// <value><c>true</c> if this instance is waitting; otherwise, <c>false</c>.</value>
 	public bool IsWaitting {
-		get { return m_stateMachine.State == State.Wait; }
+		get { return m_stateMachine.State == State.WaitOnLocation; }
 	}
 
 	/// <summary>
@@ -100,7 +146,8 @@ public class Car : MBehavior
 		// calculate the road
 		temLocation = _tem;
 		targetLocation = _target;
-		CalculateNext();
+		nextLocation = CalculateNext();
+
 		SetRoad();
 
 		// set the init Position
@@ -112,91 +159,53 @@ public class Car : MBehavior
 
 
 	/// <summary>
-	/// Update the next road to move, the following parameters are changed
-	///  - next
-	/// set to null if there is no
+	/// calculate the next location
+	/// return null if there is no
 	/// </summary>
-	virtual public void CalculateNext( )
+	virtual public Location CalculateNext( )
 	{
-//		Debug.Log("Calculate Next");
 		route = TrafficManager.Instance.GetRoute( temLocation , targetLocation , temRoad );
 		if ( route != null && route.Length > 1 )
-			nextLocation = route[1];
-		else
-			nextLocation = null;
-
-//		nextLocation = TrafficManager.Instance.GetNextLocation( temLocation , targetLocation );
+			return route[1];
+		
+		return null;
 	}
 
 	/// <summary>
 	/// Set the temRoad according to tem Location and next Location
 	/// </summary>
-	public void SetRoad()
+	virtual public void SetRoad()
 	{
+		if ( temRoad != null )
+			temRoad.OnLeave( this );
 		temRoad = temLocation.GetRoadToward( nextLocation );
+		if ( temRoad != null )
+			temRoad.OnArrive( this );
 	}
 
 	void InitStateMachine()
 	{
 		m_stateMachine = new AStateMachine<State, LogicEvents>(State.None);
 
-		m_stateMachine.AddUpdate(State.MoveForward , delegate {
-			// Update Speed
-			Car forwardCar = TestForward();
-			if ( forwardCar != null && forwardCar.Speed.magnitude <= this.Speed.magnitude && ( forwardCar.temRoad == temRoad ) ) {
-				m_speed = Mathf.Clamp( m_speed - Acceleration * Time.deltaTime , forwardCar.Speed.magnitude , MaxSpeed );
-			}else if ( (transform.position - temRoad.GetEndPosition()).magnitude < SafeDistance )
-			{
-				m_speed = Mathf.Clamp( m_speed - Acceleration * Time.deltaTime , SlowSpeed , MaxSpeed );
-			}
-			else {
-				m_speed = Mathf.Clamp( m_speed + Acceleration * Time.deltaTime , 0 , MaxSpeed );
-			}
-
-			if ( m_speed < SlowSpeed )
-				waittingTime += Time.deltaTime;
-
-
-//			Debug.Log("Update delta time " + Time.deltaTime );
-
-			// Update Direction
-			direction = GetForwardDirection().normalized;
-
-			// Update Position
-			transform.position += Speed * Time.deltaTime;
-
-			// Test If Arrive the end position
-			if ( ( transform.position - temRoad.GetEndPosition() ).magnitude < Speed.magnitude * Time.deltaTime * 1.1f ) {
-				m_stateMachine.State = State.Wait;
-			}
-		});
+		m_stateMachine.AddUpdate(State.MoveForward , OnMoveForwardUpdate );
 
 		m_stateMachine.AddEnter(State.Wait , delegate {
-			m_speed = 0;
-	
+			m_forwardSpeed = 0;
 			temLocation = nextLocation;
-			CalculateNext();
+			nextLocation = CalculateNext();
 			// arrive the tem Location
 			if ( temLocation != null )
 				temLocation.OnArrive( this );
+
+			m_stateMachine.State = State.WaitOnLocation;
 		});
 
-		m_stateMachine.AddUpdate( State.Wait , delegate {
+		m_stateMachine.AddUpdate( State.WaitOnLocation , delegate {
 			waittingTime += Time.deltaTime;
 			OnWaitUpdate();
 		});
 
-		m_stateMachine.AddEnter(State.Pass, delegate {
-
-//			CalculateNext();
-			// move from last road to the next one
-			if ( temRoad != null )
-				temRoad.OnLeave( this );
-			SetRoad();
-			if ( temRoad != null )
-				temRoad.OnArrive( this );
-			
-		});
+		m_stateMachine.AddEnter(State.Pass, OnEnterPass);
 
 		m_stateMachine.AddExit( State.Pass , delegate {
 			transform.forward = GetForwardDirection();
@@ -205,6 +214,151 @@ public class Car : MBehavior
 			temLocation.OnLeave( this );
 		});
 
+		m_stateMachine.AddEnter( State.StopForFirstPriority , delegate {
+			Debug.Log("Enter top ");
+			m_sideSpeed = 0;
+		});
+
+		m_stateMachine.AddUpdate( State.StopForFirstPriority , delegate {
+				
+			float SideDistanceMax = Width + 0.1f;
+			float sideDistance = Mathf.Clamp( temRoad.GetDistanceToRoad( transform.position ) , 0.001f , SideDistanceMax );
+//			Debug.Log("Side Distance " + sideDistance );
+			m_sideSpeed = Mathf.Sin( Mathf.Acos( Mathf.Clamp(  1f - 2 * sideDistance / SideDistanceMax  , -1f , 1f ) ) )* MaxSpeed + 0.001f ;
+
+			// Update the forward Speed
+			m_forwardSpeed = Mathf.Clamp( m_forwardSpeed - Acceleration / 2f  * Time.deltaTime , SlowSpeed , MaxSpeed );
+
+			// Update Direction
+			forwardDirection = GetForwardDirection().normalized;
+			transform.forward = Speed.normalized;
+
+			transform.position += Speed * Time.deltaTime;
+
+			// Test If The Policd Car Walk Passed
+			if ( (Vector3.Dot( ( firstPriorityCar.transform.position - transform.position ) , temRoad.GetDirection() ) > firstPriorityCar.Length + Length )
+				|| temRoad != firstPriorityCar.temRoad ) {
+				m_stateMachine.State = State.BackToRoad;
+			}
+
+		});
+
+		m_stateMachine.AddExit( State.StopForFirstPriority , delegate {
+			m_sideSpeed = 0;
+			m_forwardSpeed = Mathf.Epsilon;
+		});
+			
+		m_stateMachine.AddUpdate(State.BackToRoad , delegate() {
+
+			float SideDistanceMax = Width + 0.1f;
+			float sideDistance = Mathf.Clamp( SideDistanceMax - temRoad.GetDistanceToRoad( transform.position ) , 0.001f , SideDistanceMax);
+				//			Debug.Log("Side Distance " + sideDistance );
+			m_sideSpeed = - ( Mathf.Sin( Mathf.Acos( Mathf.Clamp( 1f - 2 * sideDistance / SideDistanceMax , -1f , 1f ) ) ) * MaxSpeed );
+
+			// Update the forward Speed
+			m_forwardSpeed = Mathf.Clamp( m_forwardSpeed + Acceleration * Time.deltaTime , SlowSpeed , MaxSpeed );
+			transform.forward = Speed.normalized;
+//			Debug.Log("Back Speed " + Speed + " " + Speed.normalized + " side " + m_sideSpeed + " forward " + m_forwardSpeed + " direction " + forwardDirection );
+
+			transform.position += Speed * Time.deltaTime;
+
+			if ( Vector3.Dot( ( transform.position - temRoad.GetStartPosition() ) , SideDirection ) < 0 )
+				m_stateMachine.State = State.MoveForward;
+
+		});
+
+		m_stateMachine.AddExit( State.BackToRoad , delegate {
+			if ( temRoad != null )	
+				transform.position = temRoad.GetNearestPoint( transform.position );
+			m_sideSpeed = 0;
+		});
+
+
+
+		m_stateMachine.AddUpdate( State.StopForFirstPriorityWait , delegate {
+
+			float SideDistanceMax = Width + 0.1f;
+			float sideDistance = Mathf.Clamp( temRoad.GetDistanceToRoad( transform.position ) , 0.001f , SideDistanceMax );
+			//			Debug.Log("Side Distance " + sideDistance );
+			m_sideSpeed = Mathf.Sin( Mathf.Acos( Mathf.Clamp(  1f - 2 * sideDistance / SideDistanceMax  , -1f , 1f ) ) )* MaxSpeed + 0.001f ;
+
+			// Update Direction
+			forwardDirection = GetForwardDirection().normalized;
+			transform.forward = Speed.normalized;
+
+			transform.position += Speed * Time.deltaTime;
+
+			// Test If The Policd Car Walk Passed
+			if ( (Vector3.Dot( ( firstPriorityCar.transform.position - transform.position ) , temRoad.GetDirection() ) > firstPriorityCar.Length + Length )
+				|| temRoad != firstPriorityCar.temRoad ) {
+				m_stateMachine.State = State.BackToRoadWait;
+			}
+
+		});
+
+		m_stateMachine.AddExit( State.StopForFirstPriorityWait , delegate {
+			m_sideSpeed = 0;
+			m_forwardSpeed = Mathf.Epsilon;
+		});
+
+		m_stateMachine.AddUpdate(State.BackToRoadWait , delegate() {
+
+			float SideDistanceMax = Width + 0.1f;
+			float sideDistance = Mathf.Clamp( SideDistanceMax - temRoad.GetDistanceToRoad( transform.position ) , 0.001f , SideDistanceMax);
+			//			Debug.Log("Side Distance " + sideDistance );
+			m_sideSpeed = - ( Mathf.Sin( Mathf.Acos( Mathf.Clamp( 1f - 2 * sideDistance / SideDistanceMax , -1f , 1f ) ) ) * MaxSpeed );
+
+			// Update the forward Speed
+			transform.forward = Speed.normalized;
+			Debug.Log("Back Speed " + Speed + " " + Speed.normalized + " side " + m_sideSpeed + " forward " + m_forwardSpeed + " direction " + forwardDirection );
+
+			transform.position += Speed * Time.deltaTime;
+
+			if ( Vector3.Dot( ( transform.position - temRoad.GetStartPosition() ) , SideDirection ) < 0 )
+				m_stateMachine.State = State.WaitOnLocation;
+
+		});
+
+		m_stateMachine.AddExit( State.BackToRoadWait , delegate {
+			if ( temRoad != null )	
+				transform.position = temRoad.GetNearestPoint( transform.position );
+			m_sideSpeed = 0;
+		});
+	}
+
+	protected virtual void OnEnterPass()
+	{
+		SetRoad();
+	}
+
+	protected virtual void OnMoveForwardUpdate()
+	{
+		// Update Speed
+		Car forwardCar = TestForward();
+		if ( forwardCar != null && forwardCar.Speed.magnitude <= this.Speed.magnitude && ( forwardCar.temRoad == temRoad ) ) {
+			m_forwardSpeed = Mathf.Clamp( m_forwardSpeed - Acceleration * Time.deltaTime , forwardCar.Speed.magnitude , MaxSpeed );
+		}else if ( (transform.position - temRoad.GetEndPosition()).magnitude < SafeDistance )
+		{
+			m_forwardSpeed = Mathf.Clamp( m_forwardSpeed - Acceleration * Time.deltaTime , SlowSpeed , MaxSpeed );
+		}
+		else {
+			m_forwardSpeed = Mathf.Clamp( m_forwardSpeed + Acceleration * Time.deltaTime , 0 , MaxSpeed );
+		}
+
+		if ( m_forwardSpeed < SlowSpeed )
+			waittingTime += Time.deltaTime;
+
+		// Update Direction
+		forwardDirection = GetForwardDirection().normalized;
+		transform.forward = Speed.normalized;
+
+		// Update Position
+		transform.position += Speed * Time.deltaTime;
+
+		// Test If Arrive the end position
+		if ( Vector3.Dot( ( transform.position - temRoad.GetEndPosition() ) , temRoad.GetDirection() ) > 0 ) {
+			m_stateMachine.State = State.Wait;
+		}
 	}
 
 	float waitUpdateTimer = 0.5f;
@@ -213,7 +367,7 @@ public class Car : MBehavior
 		if ( waitUpdateTimer < 0 )
 		{
 			waitUpdateTimer = 0.5f;
-			CalculateNext();
+			nextLocation =  CalculateNext();
 		}
 		waitUpdateTimer -= Time.deltaTime;
 	}
@@ -221,11 +375,12 @@ public class Car : MBehavior
 	public void Fade()
 	{
 		m_stateMachine.State = State.Fade;
+		gameObject.SetActive(false);
 	}
 
 	public void WaitToPass()
 	{
-		if ( m_stateMachine.State == State.Wait )
+		if ( m_stateMachine.State == State.WaitOnLocation )
 			m_stateMachine.State = State.Pass;
 	}
 
@@ -287,24 +442,48 @@ public class Car : MBehavior
 		return transform.forward;
 	}
 
-	#region MoveInLocation
 
+	virtual public bool IsIgnoreTrafficLight()
+	{
+		return false;
+	}
+
+	public void StopByFirstPriority( Car _first )
+	{
+		// only affect the car in moveforward and wait
+		if ( AffectedByFirstPriority && TemState == State.MoveForward  )
+		{
+			m_stateMachine.State = State.StopForFirstPriority;
+			firstPriorityCar = _first;
+		}
+		else if ( AffectedByFirstPriority && TemState == State.Wait  )
+		{
+			m_stateMachine.State = State.StopForFirstPriorityWait;
+			firstPriorityCar = _first;
+		}
+	}
+
+	public void EndStop()
+	{
+		if ( m_stateMachine.State == State.StopForFirstPriority )
+			m_stateMachine.State = State.MoveForward;
+	}
+
+	#region MoveInLocation
 
 	public void CrossMoveTo( Vector3 toPosition , Location.EndPassHandler endHandler  )
 	{
 		Vector3 toward = toPosition - transform.position;
 		if ( Vector3.Angle( transform.forward , toward ) < 1f ) // move forward
 		{
-//			Debug.Log("Move Straight");
 			StartCoroutine( CrossForward ( toPosition , endHandler ) );
 		}else if ( Mathf.RoundToInt( Vector3.Angle( transform.forward , toward ) ) == 90 ) // move back
 		{
-//			Debug.Log("Move Back");
+			// TODO : add the turn back animation
 			transform.position = toPosition;
 			endHandler();
 		}else // turn
 		{
-//			Debug.Log("Turn 90 degreeds");
 			StartCoroutine( CrossTurn( toPosition , endHandler ));
 		}
 	}
@@ -324,18 +503,19 @@ public class Car : MBehavior
 		float angle = 0; // angle of rotation in radian
 
 		// make a turn 
-		while( (transform.position - to).magnitude > Speed.magnitude * Time.deltaTime * 2f ) {
-			m_speed = Mathf.Clamp( m_speed + Acceleration * Time.deltaTime , 0 , MaxSpeed );
+//		while( (transform.position - to).magnitude > Speed.magnitude * Time.deltaTime * 2f ) {
+		while( angle < Mathf.PI / 2f ) {
+			m_forwardSpeed = Mathf.Clamp( m_forwardSpeed + Acceleration * Time.deltaTime , 0 , MaxSpeed );
 
-			angle += m_speed * Time.deltaTime / radiusX ;
+			angle += m_forwardSpeed * Time.deltaTime / radiusX ;
 			Vector3 offsetFromTo = Vector3.zero;
 
 			offsetFromTo -= coordinateX * radiusX * Mathf.Cos( angle );
 			offsetFromTo -= coordinateY * radiusY * ( 1f - Mathf.Sin( angle ));
 
 			transform.position = to + offsetFromTo;
-			direction = (Mathf.Cos(angle) * coordinateY + Mathf.Sin( angle ) * coordinateX).normalized;
-			transform.forward = direction;
+			forwardDirection = (Mathf.Cos(angle) * coordinateY + Mathf.Sin( angle ) * coordinateX).normalized;
+			transform.forward = forwardDirection;
 			yield return new WaitForEndOfFrame();
 		}
 
@@ -348,9 +528,10 @@ public class Car : MBehavior
 	{
 		
 		Vector3 toward = to - transform.position;
-		direction = toward.normalized;
-		while ( (transform.position - to).magnitude > Speed.magnitude * Time.deltaTime ) {
-			m_speed = Mathf.Clamp( m_speed + Acceleration * Time.deltaTime , 0 , MaxSpeed );
+		forwardDirection = toward.normalized;
+//		while ( (transform.position - to).magnitude > Speed.magnitude * Time.deltaTime ) {
+		while ( Vector3.Dot( ( transform.position - to) , toward ) < 0 ) {
+			m_forwardSpeed = Mathf.Clamp( m_forwardSpeed + Acceleration * Time.deltaTime , 0 , MaxSpeed );
 			transform.position += Speed * Time.deltaTime;
 			yield return new WaitForEndOfFrame();
 		}
@@ -374,6 +555,7 @@ public class Car : MBehavior
 		Gizmos.DrawWireCube (transform.position, size);
 
 
+
 		// draw the route to target
 		Gizmos.color = Color.yellow;
 		if ( route != null )
@@ -388,7 +570,7 @@ public class Car : MBehavior
 			}
 		}
 
-		if ( temRoad != null )
+		if ( temRoad != null && temRoad.Original != null && temRoad.Target != null  )
 		{
 			Gizmos.color = Color.blue;
 			Gizmos.DrawWireSphere( temRoad.GetEndPosition() , 0.2f );
@@ -399,4 +581,7 @@ public class Car : MBehavior
 		}
 
 	}
+
+
+
 }

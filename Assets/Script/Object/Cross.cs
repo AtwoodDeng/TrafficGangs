@@ -77,8 +77,24 @@ public class Cross : Location {
 	bool isPassing = false;
 	virtual public void UpdateWaittingCar()
 	{
+
+		// pass the first priority cars
+		for( int i = 0 ; i < waittingCar.Count ; ++ i )
+		{
+			if ( waittingCar[i].IsWaitting )
+			{
+				if ( waittingCar[i].IsIgnoreTrafficLight() )
+				{
+					PassCar( waittingCar[i] );
+					waittingCar.Remove (waittingCar[i]);
+					return;
+				}
+			}
+		}
+
 		if ( !isPassing )
 		{
+
 			// pass the straight cars
 			for( int i = 0 ; i < waittingCar.Count ; ++ i )
 			{
@@ -129,15 +145,12 @@ public class Cross : Location {
 
 	public void PassCar( Car c )
 	{
-//		Debug.Log("Set to Pass " + c );
 		c.WaitToPass();
 		isPassing = true;
 		c.CrossMoveTo( c.GetNextRoad().GetStartPosition() , delegate {
 			c.PassToMoveForward();
 			isPassing = false;
 		});
-
-//		c.PassToMoveForward();
 	}
 
 	public override bool IsPassiable ( Road fromRoad , Road toRoad , float timeRate = -1f)

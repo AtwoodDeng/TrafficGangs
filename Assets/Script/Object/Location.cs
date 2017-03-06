@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+
 public class Location : MBehavior {
 
 	[SerializeField] protected List<Road> roads = new List<Road>();
@@ -22,8 +23,6 @@ public class Location : MBehavior {
 			m_collider = gameObject.GetComponent<BoxCollider>();
 		m_collider.size = Vector3.one * Width;
 	}
-
-
 
 	protected override void MUpdate ()
 	{
@@ -86,6 +85,12 @@ public class Location : MBehavior {
 	virtual public Road GetNeastestPassible( Road fromRoad)
 	{
 		return roads [0];
+	}
+
+	public bool IsInLocation( Vector3 position )
+	{
+		Vector3 offset = position - transform.position;
+		return ( Mathf.Abs( offset.x ) < Width / 2f ) && ( Mathf.Abs( offset.y ) < Width / 2f );
 	}
 
 }
@@ -170,5 +175,44 @@ public class Road
 	public void OnArrive( Car car )
 	{
 		carOnRoad.Add( car );
+	}
+
+//	public void AllStopByFirstPriority()
+//	{
+//		foreach( Car c in carOnRoad )
+//		{
+//			Debug.Log("Set " + c + " to stop ");
+//			c.StopByFirstPriority();
+//		}
+//	}
+
+//	public void AllRecoverMoving()
+//	{
+//		foreach( Car c in carOnRoad )
+//		{
+//			c.EndStop();
+//		}
+//	}
+
+	public Car GetPoliceCar()
+	{
+		foreach( Car c in carOnRoad )
+		{
+			if ( c.IsIgnoreTrafficLight() )
+				return c;
+		}
+		return null;
+	}
+
+	public float GetDistanceToRoad( Vector3 pos )
+	{
+		Ray ray = new Ray( GetStartPosition() , GetDirection() );
+		return Vector3.Cross(ray.direction, pos - ray.origin).magnitude;
+	}
+
+	public Vector3 GetNearestPoint ( Vector3 pos )
+	{
+		Ray ray = new Ray( GetStartPosition() , GetDirection() );
+		return GetStartPosition() + Vector3.Dot( ray.direction , pos - ray.origin ) * ray.direction; 
 	}
 }

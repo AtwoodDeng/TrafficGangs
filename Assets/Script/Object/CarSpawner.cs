@@ -5,11 +5,13 @@ using UnityEngine;
 public class CarSpawner : Location {
 
 	[SerializeField] GameObject[] carPrefabs;
+	[SerializeField] GameObject policeCarPrefab;
 	[SerializeField] List<Location> targets;
 	[SerializeField] MinMax spawTime;
 	[SerializeField] bool CreateOnStart = false;
 	[SerializeField] float TestDistance;
 	[SerializeField] LayerMask carTestMask;
+	public bool IsSpawPolicCar = false;
 	float timer = 0;
 
 	protected override void MAwake ()
@@ -26,6 +28,43 @@ public class CarSpawner : Location {
 			SpawCar();
 			timer = spawTime.rand;
 		}
+		if ( IsSpawPolicCar )
+		{
+			IsSpawPolicCar = !SpawPoliceCar();
+		}
+	}
+
+	/// <summary>
+	/// Spaws the police car.
+	/// </summary>
+	/// <returns><c>true</c>, if police car was spawed, <c>false</c> otherwise.</returns>
+	public bool SpawPoliceCar()
+	{
+
+		// test if all the road is empty
+		foreach( Road r in roads )
+		{
+			if ( TestForward( r ) != null )
+				return false;
+		}
+
+		if ( policeCarPrefab == null ) 
+			return false;
+
+		GameObject carObj = Instantiate( policeCarPrefab );
+
+		CarPolice carCom = carObj.GetComponent<CarPolice>();
+		if ( carCom == null )
+		{
+			Destroy( carObj );
+			return false;
+		}
+		Car chaseCar = TrafficManager.Instance.carList[Random.Range(0,TrafficManager.Instance.carList.Count)];
+		chaseCar.AffectedByFirstPriority = false;
+		carCom.SetFromTo( this, chaseCar );
+		TrafficManager.RegisterCar (carCom);
+
+		return true;
 	}
 
 	public void SpawCar()
@@ -112,6 +151,5 @@ public class CarSpawner : Location {
 		base.OnArrive (car);
 		TrafficManager.UnregisterCar (car);
 		car.Fade();
-		car.gameObject.SetActive(false);
 	}
 }

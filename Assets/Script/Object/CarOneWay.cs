@@ -4,13 +4,13 @@ using UnityEngine;
 
 public class CarOneWay : Car {
 
-	public override void CalculateNext ()
+	public override Location CalculateNext ()
 	{
-		nextLocation = temLocation.GetNeastestPassible ( GetTemRoad() ).Target;
+		return temLocation.GetNeastestPassible ( GetTemRoad() ).Target;
 	}
 
-	protected override void OnWaitUpdate ()
-	{
-		CalculateNext();
-	}
+//	protected override void OnWaitUpdate ()
+//	{
+//		CalculateNext();
+//	}
 }
