@@ -60,8 +60,8 @@ public class CarSpawner : Location {
 			return false;
 		}
 		Car chaseCar = TrafficManager.Instance.carList[Random.Range(0,TrafficManager.Instance.carList.Count)];
-		chaseCar.AffectedByFirstPriority = false;
-		carCom.SetFromTo( this, chaseCar );
+		chaseCar.AffectedByPolice = false;
+		carCom.SetTargetCar( this, chaseCar );
 		TrafficManager.RegisterCar (carCom);
 
 		return true;

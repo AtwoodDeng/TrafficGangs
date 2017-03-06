@@ -12,7 +12,7 @@ public class CarPolice : Car {
 	[SerializeField] private Car m_targetCar;
 	public Location originalLocation;
 
-	public void SetFromTo( Location _from, Car car )
+	public void SetTargetCar( Location _from, Car car )
 	{
 		originalLocation = _from;
 		m_targetCar = car;

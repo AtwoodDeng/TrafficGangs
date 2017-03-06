@@ -35,7 +35,7 @@ public class Car : MBehavior
 	[SerializeField] Vector3 size;
 	[SerializeField] LayerMask carTestMask;
 	[SerializeField] float additionalTestDistance = 0.1f;
-	public bool AffectedByFirstPriority = true;
+	public bool AffectedByPolice = true;
 	protected Location[] route = null;
 	static int count = 0;
 	Car firstPriorityCar = null;
@@ -451,12 +451,12 @@ public class Car : MBehavior
 	public void StopByFirstPriority( Car _first )
 	{
 		// only affect the car in moveforward and wait
-		if ( AffectedByFirstPriority && TemState == State.MoveForward  )
+		if ( AffectedByPolice && TemState == State.MoveForward  )
 		{
 			m_stateMachine.State = State.StopForFirstPriority;
 			firstPriorityCar = _first;
 		}
-		else if ( AffectedByFirstPriority && TemState == State.Wait  )
+		else if ( AffectedByPolice && TemState == State.Wait  )
 		{
 			m_stateMachine.State = State.StopForFirstPriorityWait;
 			firstPriorityCar = _first;
