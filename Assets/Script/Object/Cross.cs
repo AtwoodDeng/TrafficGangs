@@ -17,6 +17,7 @@ public class Cross : Location {
 	[SerializeField] LimitedTurnDirection moveLimitFromEast = LimitedTurnDirection.All;
 	[SerializeField] bool ResetNorthSouth = false;
 	[SerializeField] bool ResetEastWest = false;
+	[SerializeField] TrafficLight trafficLightScript;
 
 	/// <summary>
 	/// Get the limit direction according to the type of the road
@@ -53,7 +54,7 @@ public class Cross : Location {
 		base.MAwake ();
 		timer = 0;
 	}
-
+		
 	protected override void MUpdate ()
 	{
 		base.MUpdate ();
@@ -262,11 +263,13 @@ public class Cross : Location {
 		if ( type == RoadType.North || type == RoadType.South )
 		{
 			timer = 0;
+			trafficLightScript.isPassingNS = true;
 
 		}
 		if ( type == RoadType.West || type == RoadType.East )
 		{
 			timer = PassRate * PassCycle;
+			trafficLightScript.isPassingNS = false;
 		}
 	}
 
@@ -308,10 +311,16 @@ public class Cross : Location {
 		{
 			Gizmos.DrawLine( transform.position + transform.forward * Width / 2f 
 				, transform.position - transform.forward * Width / 2f );
-		} else if ( IsPassing( RoadType.East) || IsPassing( RoadType.West) ) {
+			trafficLightScript.DisplayPassingNS();
+		} 
+		else if ( IsPassing( RoadType.East) || IsPassing( RoadType.West) ) 
+		{
 			Gizmos.DrawLine( transform.position + transform.right * Width / 2f 
 				, transform.position - transform.right * Width / 2f );
-		}else {
+			trafficLightScript.DisplayPassingWE();
+		}
+		else 
+		{
 			Gizmos.color = Color.red;
 			Gizmos.DrawLine( transform.position + transform.forward * Width / 2f + transform.right * Width / 2f ,
 				transform.position - transform.forward * Width / 2f - transform.right * Width / 2f);
@@ -388,4 +397,38 @@ public class Cross : Location {
 		}
 		return newRoads [0];
 	}
+		
+	public void AllowPassingNS()
+	{
+		ResetToPass(RoadType.North);
+	}
+	public void AllowPassingWE()
+	{
+		ResetToPass(RoadType.East);
+	}
+
+	public void SetNorthDirection(LimitedTurnDirection direction)
+	{
+		moveLimitFromNorth = direction;
+	}
+
+
+	public void SetSouthDirection(LimitedTurnDirection direction)
+	{
+		moveLimitFromSouth = direction;
+	}
+
+	public void SetEastDirection(LimitedTurnDirection direction)
+	{
+		moveLimitFromEast = direction;
+	}
+
+	public void SetWestDirection(LimitedTurnDirection direction)
+	{
+		moveLimitFromWest = direction;
+	}
+
+
+
+
 }

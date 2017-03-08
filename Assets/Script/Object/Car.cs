@@ -43,7 +43,7 @@ public class Car : MBehavior
 	BoxCollider m_collider;
 	public float SafeDistance {
 		get {
-			return 0.5f * Speed.magnitude * AccelerationTime; 
+			return 1.0f * Speed.magnitude * AccelerationTime; 
 		}
 	}
 	public float RawTestDistance {

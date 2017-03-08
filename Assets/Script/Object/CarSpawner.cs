@@ -11,6 +11,7 @@ public class CarSpawner : Location {
 	[SerializeField] bool CreateOnStart = false;
 	[SerializeField] float TestDistance;
 	[SerializeField] LayerMask carTestMask;
+	public bool RedSwitch=true;
 	public bool IsSpawPolicCar = false;
 	float timer = 0;
 
@@ -81,11 +82,40 @@ public class CarSpawner : Location {
 				return;
 		}
 
-		GameObject carObj = Instantiate( carPrefabs[Random.Range( 0 , carPrefabs.Length) ] );
+		if(carPrefabs.Length > 1)
+		{
+			for (int i =0; i < 1; i++)
+			{
+				if((i== 0)&&(RedSwitch))
+				{
+					GameObject carObj = Instantiate( carPrefabs[0] );
 
-		Car carCom = carObj.GetComponent<Car>();
-		carCom.SetFromToLocation( this , targets[Random.Range( 0 , targets.Count) ] );
-		TrafficManager.RegisterCar (carCom);
+					Car carCom = carObj.GetComponent<Car>();
+					carCom.SetFromToLocation( this , targets[Random.Range( 0 , targets.Count) ] );
+					TrafficManager.RegisterCar (carCom);
+					RedSwitch=false;
+				}
+				else
+				{
+					GameObject carObj = Instantiate( carPrefabs[1] );
+
+					Car carCom = carObj.GetComponent<Car>();
+					carCom.SetFromToLocation( this , targets[Random.Range( 0 , targets.Count) ] );
+					TrafficManager.RegisterCar (carCom);
+				}
+			}
+			
+		}
+		else
+		{
+			GameObject carObj = Instantiate( carPrefabs[Random.Range(0, carPrefabs.Length)] );
+
+			Car carCom = carObj.GetComponent<Car>();
+			carCom.SetFromToLocation( this , targets[Random.Range( 0 , targets.Count) ] );
+			TrafficManager.RegisterCar (carCom);
+			
+		}
+
 	}
 
 	void OnDrawGizmos() {
